@@ -8,6 +8,13 @@ use std::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
+  if std::env::args()
+    .nth(1)
+    .is_some_and(|arg| matches!(arg.as_str(), "reboot" | "--reboot"))
+  {
+    reboot(&login()?)?;
+    return Ok(());
+  }
   loop {
     if show_status().is_err() {
       notify("Disconnected")?;
@@ -48,6 +55,18 @@ fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
     _ => "🪫",
   };
   Ok(format!("{ch}{c}% {v} mV"))
+}
+
+fn reboot(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
+  Command::new("sh")
+    .arg("-c")
+    .arg(
+      include_str!("../reboot.sh")
+        .replace("{auth_cookie}", auth_cookie),
+    )
+    .stderr(Stdio::null())
+    .output()?;
+  Ok(())
 }
 
 fn net_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
