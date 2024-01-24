@@ -12,8 +12,8 @@ const PARSE_ERROR: &str = "Parse error";
 
 fn main() -> Result<(), Box<dyn Error>> {
   match env::args().nth(1).unwrap_or_default().as_str() {
+    "off" | "--off" => power_off(&login()?),
     "reboot" | "--reboot" => reboot(&login()?),
-    "off" | "--off" => todo!(),
     _ => loop {
       if show_status_notification().is_err() {
         notify("Disconnected")?;
@@ -54,6 +54,12 @@ fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
 fn reboot(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
   const REBOOT_SH: &str = include_str!("../reboot.sh");
   sh(&REBOOT_SH.replace("{auth_cookie}", auth_cookie))?;
+  Ok(())
+}
+
+fn power_off(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
+  const POWER_OFF_SH: &str = include_str!("../power_off.sh");
+  sh(&POWER_OFF_SH.replace("{auth_cookie}", auth_cookie))?;
   Ok(())
 }
 
