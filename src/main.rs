@@ -1,29 +1,29 @@
 #![warn(clippy::pedantic)]
 
 use std::{
+  env,
   error::Error,
   process::{Command, Stdio},
   thread,
   time::Duration,
 };
 
+const PARSE_ERROR: &str = "Parse error";
+
 fn main() -> Result<(), Box<dyn Error>> {
-  if std::env::args()
-    .nth(1)
-    .is_some_and(|arg| matches!(arg.as_str(), "reboot" | "--reboot"))
-  {
-    reboot(&login()?)?;
-    return Ok(());
-  }
-  loop {
-    if show_status().is_err() {
-      notify("Disconnected")?;
-    }
-    thread::sleep(Duration::from_secs(40));
+  match env::args().nth(1).unwrap_or_default().as_str() {
+    "reboot" | "--reboot" => reboot(&login()?),
+    "off" | "--off" => todo!(),
+    _ => loop {
+      if show_status_notification().is_err() {
+        notify("Disconnected")?;
+      }
+      thread::sleep(Duration::from_secs(40));
+    },
   }
 }
 
-fn show_status() -> Result<(), Box<dyn Error>> {
+fn show_status_notification() -> Result<(), Box<dyn Error>> {
   let auth_cookie = &login()?;
   let content =
     battery_info(auth_cookie)? + " " + &net_info(auth_cookie)?;
@@ -32,22 +32,16 @@ fn show_status() -> Result<(), Box<dyn Error>> {
 }
 
 fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
-  let out = Command::new("sh")
-    .arg("-c")
-    .arg(
-      include_str!("../get_battery_info.sh")
-        .replace("{auth_cookie}", auth_cookie),
-    )
-    .stderr(Stdio::null())
-    .output()?;
-  let s = String::from_utf8(out.stdout)?;
-  // println!("{s}");
+  const GET_BATTERY_INFO_SH: &str =
+    include_str!("../get_battery_info.sh");
+  let s =
+    sh(&GET_BATTERY_INFO_SH.replace("{auth_cookie}", auth_cookie))?;
   let c = xml_field(&s, "capacity")
-    .ok_or("Parse error")?
+    .ok_or(PARSE_ERROR)?
     .parse::<u8>()?;
-  let v = xml_field(&s, "voltage_now").ok_or("Parse error")?;
+  let v = xml_field(&s, "voltage_now").ok_or(PARSE_ERROR)?;
   let ch = match xml_field(&s, "usbchg_status")
-    .ok_or("Parse error")?
+    .ok_or(PARSE_ERROR)?
     .parse::<u8>()?
   {
     1 => "⚡️",
@@ -58,47 +52,32 @@ fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
 }
 
 fn reboot(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
-  Command::new("sh")
-    .arg("-c")
-    .arg(
-      include_str!("../reboot.sh")
-        .replace("{auth_cookie}", auth_cookie),
-    )
-    .stderr(Stdio::null())
-    .output()?;
+  const REBOOT_SH: &str = include_str!("../reboot.sh");
+  sh(&REBOOT_SH.replace("{auth_cookie}", auth_cookie))?;
   Ok(())
 }
 
 fn net_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
-  let out = Command::new("sh")
-    .arg("-c")
-    .arg(
-      include_str!("../get_net_info.sh")
-        .replace("{auth_cookie}", auth_cookie),
-    )
-    .stderr(Stdio::null())
-    .output()?;
-  let s = String::from_utf8(out.stdout)?;
+  const GET_NET_INFO_SH: &str = include_str!("../get_net_info.sh");
+  let s = sh(&GET_NET_INFO_SH.replace("{auth_cookie}", auth_cookie))?;
   let m = xml_field(&s, "sys_mode")
-    .ok_or("Parse error")?
+    .ok_or(PARSE_ERROR)?
     .parse::<u8>()?;
-  let r =
-    xml_field(&s, "rssi").ok_or("Parse error")?.parse::<u8>()?;
-  // println!("{s}");
+  let r = xml_field(&s, "rssi").ok_or(PARSE_ERROR)?.parse::<u8>()?;
   let s = match m {
-    1 if r > 18 => "GSM llll",
-    1 if r > 13 => "GSM lll.",
-    1 if r > 8 => "GSM ll..",
-    1 if r > 2 => "GSM l...",
-    1 => "GSM ....",
-    2 | 3 if r > 39 => "LTE llll",
-    2 | 3 if r > 27 => "LTE lll.",
-    2 | 3 if r > 18 => "LTE ll..",
-    2 | 3 if r > 9 => "LTE l...",
-    2 | 3 => "LTE ....",
-    _ => "No signal",
+    1 if r > 18 => format!("📡 GSM llll {r}%"),
+    1 if r > 13 => format!("📡 GSM lll. {r}%"),
+    1 if r > 8 => format!("📡 GSM ll.. {r}%"),
+    1 if r > 2 => format!("📡 GSM l... {r}%"),
+    1 => format!("📡 GSM .... {r}%"),
+    2 | 3 if r > 39 => format!("📡 LTE llll {r}%"),
+    2 | 3 if r > 27 => format!("📡 LTE lll. {r}%"),
+    2 | 3 if r > 18 => format!("📡 LTE ll.. {r}%"),
+    2 | 3 if r > 9 => format!("📡 LTE l... {r}%"),
+    2 | 3 => format!("📡 LTE .... {r}%"),
+    _ => "📵 No signal".to_string(),
   };
-  Ok(format!("📡 {s} {r}%"))
+  Ok(s)
 }
 
 fn xml_field(s: &str, field: &str) -> Option<String> {
@@ -118,15 +97,19 @@ fn notify(content: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn login() -> Result<String, Box<dyn Error>> {
+  let res = sh(include_str!("../login.sh"))?;
+  let auth_cookie =
+    extract(&res, "Set-cookie: ", ";").ok_or(PARSE_ERROR)?;
+  Ok(auth_cookie)
+}
+
+fn sh(script: &str) -> Result<String, Box<dyn Error>> {
   let output = Command::new("sh")
     .arg("-c")
-    .arg(include_str!("../login.sh"))
+    .arg(script)
     .stderr(Stdio::null())
     .output()?;
-  let stdout = String::from_utf8(output.stdout)?;
-  let auth_cookie =
-    extract(&stdout, "Set-cookie: ", ";").ok_or("Parse error")?;
-  Ok(auth_cookie)
+  Ok(String::from_utf8(output.stdout)?)
 }
 
 fn extract(s: &str, from: &str, to: &str) -> Option<String> {
