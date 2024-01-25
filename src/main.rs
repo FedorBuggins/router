@@ -10,28 +10,42 @@ use std::{
 
 const PARSE_ERROR: &str = "Parse error";
 
-fn main() -> Result<(), Box<dyn Error>> {
+type Any<T = ()> = Result<T, Box<dyn Error>>;
+
+fn main() -> Any {
   match env::args().nth(1).unwrap_or_default().as_str() {
-    "off" | "--off" => power_off(&login()?),
-    "reboot" | "--reboot" => reboot(&login()?),
-    _ => loop {
-      if show_info().is_err() {
-        show_status("Disconnected")?;
-      }
-      thread::sleep(Duration::from_secs(40));
-    },
+    "info" | "" => info(),
+    "watch" => watch(),
+    "reboot" => reboot(&login()?),
+    "off" => off(&login()?),
+    _ => Err("Unknown command")?,
   }
 }
 
-fn show_info() -> Result<(), Box<dyn Error>> {
+fn watch() -> Any {
+  loop {
+    info()?;
+    thread::sleep(Duration::from_secs(42));
+  }
+}
+
+fn info() -> Any {
+  if show_full_info().is_err() {
+    show_status("Disconnected")?;
+  }
+  Ok(())
+}
+
+fn show_full_info() -> Any {
   let auth_cookie = &login()?;
-  let content =
-    battery_info(auth_cookie)? + " " + &net_info(auth_cookie)?;
+  let battery_info = battery_info(auth_cookie)?;
+  let net_info = net_info(auth_cookie)?;
+  let content = format!("{battery_info} {net_info}");
   show_status_with_controls(&content)?;
   Ok(())
 }
 
-fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
+fn battery_info(auth_cookie: &str) -> Any<String> {
   const GET_BATTERY_INFO_SH: &str =
     include_str!("../get_battery_info.sh");
   let s =
@@ -51,21 +65,21 @@ fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
   Ok(format!("{ch}{c}% {v} mV"))
 }
 
-fn reboot(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
+fn reboot(auth_cookie: &str) -> Any {
   const REBOOT_SH: &str = include_str!("../reboot.sh");
   sh(&REBOOT_SH.replace("{auth_cookie}", auth_cookie))?;
   show_status("Rebooting ..")?;
   Ok(())
 }
 
-fn power_off(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
+fn off(auth_cookie: &str) -> Any {
   const POWER_OFF_SH: &str = include_str!("../power_off.sh");
   sh(&POWER_OFF_SH.replace("{auth_cookie}", auth_cookie))?;
   show_status("Switching off ..")?;
   Ok(())
 }
 
-fn net_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
+fn net_info(auth_cookie: &str) -> Any<String> {
   const GET_NET_INFO_SH: &str = include_str!("../get_net_info.sh");
   let s = sh(&GET_NET_INFO_SH.replace("{auth_cookie}", auth_cookie))?;
   let m = xml_field(&s, "sys_mode")
@@ -92,14 +106,12 @@ fn xml_field(s: &str, field: &str) -> Option<String> {
   extract(s, &format!("<{field}>"), &format!("</{field}>"))
 }
 
-fn show_status(content: &str) -> Result<(), Box<dyn Error>> {
+fn show_status(content: &str) -> Any {
   notify(content).status()?;
   Ok(())
 }
 
-fn show_status_with_controls(
-  content: &str,
-) -> Result<(), Box<dyn Error>> {
+fn show_status_with_controls(content: &str) -> Any {
   notify(content)
     .args(["--button1", "OFF"])
     .args(["--button1-action", "~/.cargo/bin/dark_droid off"])
@@ -116,19 +128,21 @@ fn notify(content: &str) -> Command {
     .args(["-c", content])
     .args(["--id", "dark_droid"])
     .arg("--alert-once")
+    .arg("--ongoing")
     .args(["--priority", "min"])
-    .args(["--icon", "router"]);
+    .args(["--icon", "router"])
+    .args(["--action", "~/.cargo/bin/dark_droid info"]);
   cmd
 }
 
-fn login() -> Result<String, Box<dyn Error>> {
+fn login() -> Any<String> {
   let res = sh(include_str!("../login.sh"))?;
   let auth_cookie =
     extract(&res, "Set-cookie: ", ";").ok_or(PARSE_ERROR)?;
   Ok(auth_cookie)
 }
 
-fn sh(script: &str) -> Result<String, Box<dyn Error>> {
+fn sh(script: &str) -> Any<String> {
   let output = Command::new("sh")
     .arg("-c")
     .arg(script)
