@@ -40,7 +40,7 @@ fn show_full_info() -> Any {
   let auth_cookie = &login()?;
   let battery_info = battery_info(auth_cookie)?;
   let net_info = net_info(auth_cookie)?;
-  let content = format!("{battery_info} {net_info}");
+  let content = format!("{battery_info}\t\t{net_info}");
   show_status_with_controls(&content)?;
   Ok(())
 }
@@ -50,19 +50,22 @@ fn battery_info(auth_cookie: &str) -> Any<String> {
     include_str!("../get_battery_info.sh");
   let s =
     sh(&GET_BATTERY_INFO_SH.replace("{auth_cookie}", auth_cookie))?;
-  let c = xml_field(&s, "capacity")
+  let capacity = xml_field(&s, "capacity")
     .ok_or(PARSE_ERROR)?
     .parse::<u8>()?;
-  let v = xml_field(&s, "voltage_now").ok_or(PARSE_ERROR)?;
-  let ch = match xml_field(&s, "usbchg_status")
+  let voltage = xml_field(&s, "voltage_now")
+    .ok_or(PARSE_ERROR)?
+    .parse::<f32>()?
+    / 1000.;
+  let badge = match xml_field(&s, "usbchg_status")
     .ok_or(PARSE_ERROR)?
     .parse::<u8>()?
   {
     1 => "⚡️",
-    _ if c > 20 => "🔋",
+    _ if capacity > 20 => "🔋",
     _ => "🪫",
   };
-  Ok(format!("{ch}{c}% {v} mV"))
+  Ok(format!("{badge} {capacity}% {voltage}V"))
 }
 
 fn reboot(auth_cookie: &str) -> Any {
