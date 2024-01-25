@@ -15,19 +15,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     "off" | "--off" => power_off(&login()?),
     "reboot" | "--reboot" => reboot(&login()?),
     _ => loop {
-      if show_status_notification().is_err() {
-        notify("Disconnected")?;
+      if show_info().is_err() {
+        show_status("Disconnected")?;
       }
       thread::sleep(Duration::from_secs(40));
     },
   }
 }
 
-fn show_status_notification() -> Result<(), Box<dyn Error>> {
+fn show_info() -> Result<(), Box<dyn Error>> {
   let auth_cookie = &login()?;
   let content =
     battery_info(auth_cookie)? + " " + &net_info(auth_cookie)?;
-  notify(&content)?;
+  show_status_with_controls(&content)?;
   Ok(())
 }
 
@@ -90,16 +90,33 @@ fn xml_field(s: &str, field: &str) -> Option<String> {
   extract(s, &format!("<{field}>"), &format!("</{field}>"))
 }
 
-fn notify(content: &str) -> Result<(), Box<dyn Error>> {
-  Command::new("termux-notification")
+fn show_status(content: &str) -> Result<(), Box<dyn Error>> {
+  notify(content).status()?;
+  Ok(())
+}
+
+fn show_status_with_controls(
+  content: &str,
+) -> Result<(), Box<dyn Error>> {
+  notify(content)
+    .args(["--button1", "OFF"])
+    .args(["--button1-action", "~/.cargo/bin/dark_droid off"])
+    .args(["--button2", "REBOOT"])
+    .args(["--button2-action", "~/.cargo/bin/dark_droid reboot"])
+    .status()?;
+  Ok(())
+}
+
+fn notify(content: &str) -> Command {
+  let mut cmd = Command::new("termux-notification");
+  cmd
     .args(["-t", "DarkDroid"])
     .args(["-c", content])
     .args(["--id", "dark_droid"])
     .arg("--alert-once")
     .args(["--priority", "min"])
-    .args(["--icon", "router"])
-    .status()?;
-  Ok(())
+    .args(["--icon", "router"]);
+  cmd
 }
 
 fn login() -> Result<String, Box<dyn Error>> {
