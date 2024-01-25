@@ -54,12 +54,14 @@ fn battery_info(auth_cookie: &str) -> Result<String, Box<dyn Error>> {
 fn reboot(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
   const REBOOT_SH: &str = include_str!("../reboot.sh");
   sh(&REBOOT_SH.replace("{auth_cookie}", auth_cookie))?;
+  show_status("Rebooting ..")?;
   Ok(())
 }
 
 fn power_off(auth_cookie: &str) -> Result<(), Box<dyn Error>> {
   const POWER_OFF_SH: &str = include_str!("../power_off.sh");
   sh(&POWER_OFF_SH.replace("{auth_cookie}", auth_cookie))?;
+  show_status("Switching off ..")?;
   Ok(())
 }
 
