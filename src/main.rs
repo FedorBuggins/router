@@ -124,7 +124,7 @@ fn show_status_with_controls(content: &str) -> Any {
 fn notify(content: &str) -> Command {
   let mut cmd = Command::new("termux-notification");
   cmd
-    .args(["-t", "DarkDroid"])
+    .args(["-t", "DarkDroid 🛜"])
     .args(["-c", content])
     .args(["--id", "dark_droid"])
     .arg("--alert-once")
