@@ -6,7 +6,7 @@ use std::{
   time::Duration,
 };
 
-const MAX_LIFETIME_HOURS: u32 = 6;
+const MAX_LIFETIME_HOURS: u32 = 8;
 
 const HOUR: Duration = Duration::from_secs(3600);
 const PARSE_ERROR: &str = "Parse error";
