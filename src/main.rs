@@ -1,25 +1,61 @@
 use std::{
   env,
   error::Error,
-  process::{Command, Stdio},
+  process::{self, Command as Cmd, ExitCode, Stdio},
   thread,
   time::Duration,
 };
 
-const MAX_LIFETIME_HOURS: u32 = 8;
+const BATTERY_LIFETIME_HOURS: u32 = 8;
 
 const HOUR: Duration = Duration::from_secs(3600);
 const PARSE_ERROR: &str = "Parse error";
+const HELP_TXT: &str = include_str!("../help.txt");
 
 type Any<T = ()> = Result<T, Box<dyn Error>>;
 
-fn main() -> Any {
-  match env::args().nth(1).unwrap_or_default().as_str() {
-    "info" | "" => info(),
-    "watch" => watch(),
-    "reboot" => reboot(&login()?),
-    "off" => off(&login()?),
-    _ => Err("Unknown command")?,
+enum Command {
+  Info,
+  Watch,
+  Reboot,
+  Off,
+}
+
+impl Command {
+  fn parse() -> Self {
+    match env::args().nth(1).unwrap_or("info".into()).as_str() {
+      "info" => Self::Info,
+      "watch" => Self::Watch,
+      "reboot" => Self::Reboot,
+      "off" => Self::Off,
+      "help" | "--help" | "-h" => {
+        print!("{HELP_TXT}");
+        process::exit(0)
+      }
+      _ => {
+        eprint!("Unknown command\n\n{HELP_TXT}");
+        process::exit(1)
+      }
+    }
+  }
+}
+
+fn main() -> ExitCode {
+  match launch() {
+    Ok(()) => ExitCode::SUCCESS,
+    Err(err) => {
+      eprintln!("{err}");
+      ExitCode::FAILURE
+    }
+  }
+}
+
+fn launch() -> Any {
+  match Command::parse() {
+    Command::Info => info(),
+    Command::Watch => watch(),
+    Command::Reboot => reboot(&login()?),
+    Command::Off => off(&login()?),
   }
 }
 
@@ -76,7 +112,7 @@ fn badge(charging: bool, capacity: u8) -> &'static str {
 }
 
 fn lifetime(capacity: u8) -> Duration {
-  MAX_LIFETIME_HOURS * HOUR * capacity.into() / 100
+  BATTERY_LIFETIME_HOURS * HOUR * capacity.into() / 100
 }
 
 fn to_time_string(dur: Duration) -> String {
@@ -146,8 +182,8 @@ fn show_status_with_controls(content: &str) -> Any {
   Ok(())
 }
 
-fn notify(content: &str) -> Command {
-  let mut cmd = Command::new("termux-notification");
+fn notify(content: &str) -> Cmd {
+  let mut cmd = Cmd::new("termux-notification");
   cmd
     .args(["-t", "DarkDroid 🛜"])
     .args(["-c", content])
@@ -168,7 +204,7 @@ fn login() -> Any<String> {
 }
 
 fn sh(script: &str) -> Any<String> {
-  let output = Command::new("sh")
+  let output = Cmd::new("sh")
     .arg("-c")
     .arg(script)
     .stderr(Stdio::null())
