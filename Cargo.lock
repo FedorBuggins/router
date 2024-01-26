@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "dark_droid"
+name = "dark-droid"
 version = "0.1.0"

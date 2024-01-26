@@ -139,9 +139,9 @@ fn show_status(content: &str) -> Any {
 fn show_status_with_controls(content: &str) -> Any {
   notify(content)
     .args(["--button1", "OFF"])
-    .args(["--button1-action", "~/.cargo/bin/dark_droid off"])
+    .args(["--button1-action", "~/.cargo/bin/dark-droid off"])
     .args(["--button2", "REBOOT"])
-    .args(["--button2-action", "~/.cargo/bin/dark_droid reboot"])
+    .args(["--button2-action", "~/.cargo/bin/dark-droid reboot"])
     .status()?;
   Ok(())
 }
@@ -151,12 +151,12 @@ fn notify(content: &str) -> Command {
   cmd
     .args(["-t", "DarkDroid 🛜"])
     .args(["-c", content])
-    .args(["--id", "dark_droid"])
+    .args(["--id", "dark-droid"])
     .arg("--alert-once")
     .arg("--ongoing")
     .args(["--priority", "min"])
     .args(["--icon", "router"])
-    .args(["--action", "~/.cargo/bin/dark_droid info"]);
+    .args(["--action", "~/.cargo/bin/dark-droid info"]);
   cmd
 }
 
