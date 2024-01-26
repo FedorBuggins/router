@@ -8,6 +8,9 @@ use std::{
   time::Duration,
 };
 
+const MAX_LIFETIME_HOURS: u32 = 6;
+
+const HOUR: Duration = Duration::from_secs(3600);
 const PARSE_ERROR: &str = "Parse error";
 
 type Any<T = ()> = Result<T, Box<dyn Error>>;
@@ -57,15 +60,36 @@ fn battery_info(auth_cookie: &str) -> Any<String> {
     .ok_or(PARSE_ERROR)?
     .parse::<f32>()?
     / 1000.;
-  let badge = match xml_field(&s, "usbchg_status")
+  let charging = xml_field(&s, "usbchg_status")
     .ok_or(PARSE_ERROR)?
     .parse::<u8>()?
-  {
-    1 => "⚡️",
-    _ if capacity > 20 => "🔋",
-    _ => "🪫",
-  };
-  Ok(format!("{badge} {capacity}% {voltage}V"))
+    == 1;
+  let badge = badge(charging, capacity);
+  let lifetime = to_time_string(lifetime(capacity));
+  Ok(format!("{badge} {capacity}% {voltage}V ~{lifetime}"))
+}
+
+fn badge(charging: bool, capacity: u8) -> &'static str {
+  match () {
+    () if charging => "⚡️",
+    () if capacity > 20 => "🔋",
+    () => "🪫",
+  }
+}
+
+fn lifetime(capacity: u8) -> Duration {
+  MAX_LIFETIME_HOURS * HOUR * capacity.into() / 100
+}
+
+fn to_time_string(dur: Duration) -> String {
+  let h = dur.as_secs_f32() / HOUR.as_secs_f32();
+  if h > 1. {
+    let h = (h * 10.).round() / 10.;
+    format!("{h}h")
+  } else {
+    let m = (h * 60.).round();
+    format!("{m}m")
+  }
 }
 
 fn reboot(auth_cookie: &str) -> Any {
@@ -90,16 +114,16 @@ fn net_info(auth_cookie: &str) -> Any<String> {
     .parse::<u8>()?;
   let r = xml_field(&s, "rssi").ok_or(PARSE_ERROR)?.parse::<u8>()?;
   let s = match m {
-    1 if r > 18 => format!("📡 GSM llll {r}%"),
-    1 if r > 13 => format!("📡 GSM lll. {r}%"),
-    1 if r > 8 => format!("📡 GSM ll.. {r}%"),
-    1 if r > 2 => format!("📡 GSM l... {r}%"),
-    1 => format!("📡 GSM .... {r}%"),
     2 | 3 if r > 39 => format!("📡 LTE llll {r}%"),
     2 | 3 if r > 27 => format!("📡 LTE lll. {r}%"),
     2 | 3 if r > 18 => format!("📡 LTE ll.. {r}%"),
     2 | 3 if r > 9 => format!("📡 LTE l... {r}%"),
     2 | 3 => format!("📡 LTE .... {r}%"),
+    1 if r > 18 => format!("📠 GSM llll {r}%"),
+    1 if r > 13 => format!("📠 GSM lll. {r}%"),
+    1 if r > 8 => format!("📠 GSM ll.. {r}%"),
+    1 if r > 2 => format!("📠 GSM l... {r}%"),
+    1 => format!("📠 GSM .... {r}%"),
     _ => "📵 No signal".to_string(),
   };
   Ok(s)
