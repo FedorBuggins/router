@@ -1,5 +1,3 @@
-#![warn(clippy::pedantic)]
-
 use std::{
   env,
   error::Error,
