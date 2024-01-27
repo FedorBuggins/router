@@ -2,15 +2,18 @@ use std::{
   env,
   error::Error,
   process::{self, Command as Cmd, ExitCode, Stdio},
+  sync::Mutex,
   thread,
   time::Duration,
 };
 
-const BATTERY_LIFETIME_HOURS: u32 = 8;
+const BATTERY_LIFETIME_HOURS: u32 = 7;
 
 const HOUR: Duration = Duration::from_secs(3600);
 const PARSE_ERROR: &str = "Parse error";
 const HELP_TXT: &str = include_str!("../help.txt");
+
+static LAST_BATTERY_CAPACITY: Mutex<Option<u8>> = Mutex::new(None);
 
 type Any<T = ()> = Result<T, Box<dyn Error>>;
 
@@ -68,9 +71,16 @@ fn watch() -> Any {
 
 fn info() -> Any {
   if show_full_info().is_err() {
-    show_status("Disconnected")?;
+    let battery_info = last_battery_info().unwrap_or_default();
+    show_status(&format!("Disconnected {battery_info}"))?;
   }
   Ok(())
+}
+
+fn last_battery_info() -> Option<String> {
+  let capacity = *LAST_BATTERY_CAPACITY.lock().ok()?.as_ref()?;
+  let badge = battery_badge(false, capacity);
+  Some(format!("{badge} ~{capacity}"))
 }
 
 fn show_full_info() -> Any {
@@ -98,12 +108,13 @@ fn battery_info(auth_cookie: &str) -> Any<String> {
     .ok_or(PARSE_ERROR)?
     .parse::<u8>()?
     == 1;
-  let badge = badge(charging, capacity);
+  let badge = battery_badge(charging, capacity);
   let lifetime = to_time_string(lifetime(capacity));
+  *LAST_BATTERY_CAPACITY.lock()? = Some(capacity);
   Ok(format!("{badge} {capacity}% {voltage}V ~{lifetime}"))
 }
 
-fn badge(charging: bool, capacity: u8) -> &'static str {
+fn battery_badge(charging: bool, capacity: u8) -> &'static str {
   match () {
     () if charging => "⚡️",
     () if capacity > 20 => "🔋",
