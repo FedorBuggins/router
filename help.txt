@@ -11,5 +11,7 @@ Commands:
   off      Off router
 
 Options:
+  --reboot-on-gsm
+           Reboot router if connected to GSM network
   -h, --help
            Print help
