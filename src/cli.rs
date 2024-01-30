@@ -1,19 +1,8 @@
-use std::{env, ops, process};
-
-#[derive(Clone, Copy)]
-pub(crate) struct RebootOnGsm(pub(crate) bool);
-
-impl ops::Deref for RebootOnGsm {
-  type Target = bool;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
+use std::{env, process};
 
 pub(crate) enum Cli {
   Info,
-  Watch(RebootOnGsm),
+  Watch,
   Reboot,
   Off,
 }
@@ -24,7 +13,7 @@ impl Cli {
     let args = &mut env::args();
     match args.nth(1).unwrap_or("info".into()).as_str() {
       "info" => Self::Info,
-      "watch" => Self::Watch(RebootOnGsm(should_reboot_on_gsm(args))),
+      "watch" => Self::Watch,
       "reboot" => Self::Reboot,
       "off" => Self::Off,
       "help" | "--help" | "-h" => {
@@ -37,9 +26,4 @@ impl Cli {
       }
     }
   }
-}
-
-fn should_reboot_on_gsm(args: &mut env::Args) -> bool {
-  args.next().is_some_and(|a| a == "--reboot-on-gsm")
-    && args.next().as_deref() != Some("false")
 }

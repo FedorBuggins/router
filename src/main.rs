@@ -7,7 +7,7 @@ mod notification;
 
 use std::{error::Error, process::ExitCode, thread, time::Duration};
 
-use cli::{Cli, RebootOnGsm};
+use cli::Cli;
 use notification::Notification;
 
 const BATTERY_LIFETIME_HOURS: u32 = 6;
@@ -27,9 +27,9 @@ fn main() -> ExitCode {
 
 fn launch() -> Result<()> {
   match Cli::parse() {
-    Cli::Info => info(RebootOnGsm(false))?,
-    Cli::Watch(reboot_on_gsm) => loop {
-      info(reboot_on_gsm)?;
+    Cli::Info => info()?,
+    Cli::Watch => loop {
+      info()?;
       thread::sleep(DELAY);
     },
     Cli::Reboot => {
@@ -44,7 +44,7 @@ fn launch() -> Result<()> {
   Ok(())
 }
 
-fn info(reboot_on_gsm: RebootOnGsm) -> Result<()> {
+fn info() -> Result<()> {
   let Ok(ref auth_cookie) = api::login() else {
     let battery_status =
       last_battery_short_status().unwrap_or_default();
@@ -52,16 +52,8 @@ fn info(reboot_on_gsm: RebootOnGsm) -> Result<()> {
       .show()?;
     return Ok(());
   };
-
-  let net = api::net(auth_cookie)?;
-  if *reboot_on_gsm && net.is_gsm() {
-    api::reboot(auth_cookie)?;
-    Notification::new("GSM network .. Rebooting ..").show()?;
-    thread::sleep(DELAY);
-    return Ok(());
-  }
-
   let battery = api::battery(auth_cookie)?;
+  let net = api::net(auth_cookie)?;
   Notification::new(format!("{battery}\t\t{net}"))
     .set_power_buttons()
     .show()?;

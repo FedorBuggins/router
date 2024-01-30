@@ -6,12 +6,6 @@ pub(crate) enum Net {
   NoSignal,
 }
 
-impl Net {
-  pub(crate) fn is_gsm(&self) -> bool {
-    matches!(self, Self::Gsm(..))
-  }
-}
-
 impl fmt::Display for Net {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match *self {
