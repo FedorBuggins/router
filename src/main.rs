@@ -65,5 +65,5 @@ fn last_battery_short_status() -> Option<String> {
   let battery = last_battery::get()?;
   let badge = battery.badge();
   let capacity = battery.capacity;
-  Some(format!("{badge} ~{capacity}"))
+  Some(format!("{badge} ~{capacity}%"))
 }
