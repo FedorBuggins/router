@@ -1,5 +1,7 @@
 use std::{env, process};
 
+const HELP_TXT: &str = include_str!("../help.txt");
+
 pub(crate) enum Cli {
   Info,
   Watch,
@@ -9,7 +11,6 @@ pub(crate) enum Cli {
 
 impl Cli {
   pub(crate) fn parse() -> Self {
-    pub(crate) const HELP_TXT: &str = include_str!("../help.txt");
     let args = &mut env::args();
     match args.nth(1).unwrap_or("info".into()).as_str() {
       "info" => Self::Info,
