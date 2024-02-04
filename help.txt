@@ -7,6 +7,7 @@ Usage: dark-droid <COMMAND>
 Commands:
   info     Show router info notification
   watch    Show info in interval
+  charge   Off router on charged
   reboot   Reboot router
   off      Off router
 

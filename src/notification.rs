@@ -1,23 +1,38 @@
 use std::{io, process::Command};
 
+use crate::BIN_NAME;
+
 const BIN: &str = concat!("~/.cargo/bin/", env!("CARGO_BIN_NAME"));
 
 pub(crate) struct Notification(Command);
 
 impl Notification {
-  pub(crate) fn new(content: impl Into<String>) -> Self {
+  fn new(content: impl Into<String>) -> Self {
     let mut cmd = Command::new("termux-notification");
-    let on_tap = &format!("{BIN} info");
     cmd
-      .args(["--id", env!("CARGO_BIN_NAME")])
       .args(["--title", "DarkDroid 🛜"])
       .args(["--content", &content.into()])
+      .args(["--icon", "router"]);
+    Self(cmd)
+  }
+
+  pub(crate) fn ongoing(content: impl Into<String>) -> Self {
+    let mut noti = Self::new(content);
+    let on_tap = &format!("{BIN} info");
+    noti
+      .0
+      .args(["--id", BIN_NAME])
       .arg("--alert-once")
       .arg("--ongoing")
       .args(["--priority", "min"])
-      .args(["--icon", "router"])
       .args(["--action", on_tap]);
-    Self(cmd)
+    noti
+  }
+
+  pub(crate) fn common(content: impl Into<String>) -> Self {
+    let mut noti = Self::new(content);
+    noti.0.args(["--id", &format!("{BIN_NAME}--common")]);
+    noti
   }
 
   pub(crate) fn set_power_buttons(&mut self) -> &mut Self {
@@ -27,6 +42,11 @@ impl Notification {
       .args(["--button1-action", &format!("{BIN} off")])
       .args(["--button2", "REBOOT"])
       .args(["--button2-action", &format!("{BIN} reboot")]);
+    self
+  }
+
+  pub(crate) fn on_delete(&mut self, action: &str) -> &mut Self {
+    self.0.args(["--on-delete", action]);
     self
   }
 
