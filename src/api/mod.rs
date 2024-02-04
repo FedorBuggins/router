@@ -1,7 +1,4 @@
-use std::{
-  ops::Deref,
-  process::{Command, Stdio},
-};
+use std::{ops::Deref, process::Command};
 
 use crate::{battery::Battery, net::Net, Result};
 
@@ -22,15 +19,6 @@ pub(crate) fn login() -> Result<AuthCookie> {
   let auth_cookie =
     slice_between(&s, "Set-cookie: ", ";").ok_or(PARSE_ERROR)?;
   Ok(AuthCookie(auth_cookie.to_string()))
-}
-
-fn sh(script: &str) -> Result<String> {
-  let output = Command::new("sh")
-    .arg("-c")
-    .arg(script)
-    .stderr(Stdio::null())
-    .output()?;
-  Ok(String::from_utf8(output.stdout)?)
 }
 
 pub(crate) fn net(auth_cookie: &AuthCookie) -> Result<Net> {
@@ -69,6 +57,11 @@ pub(crate) fn off(auth_cookie: &AuthCookie) -> Result<()> {
   Ok(())
 }
 
+fn sh(script: &str) -> Result<String> {
+  let output = Command::new("sh").args(["-c", script]).output()?;
+  Ok(String::from_utf8(output.stdout)?)
+}
+
 fn slice_between<'a>(
   s: &'a str,
   from: &str,
@@ -76,7 +69,7 @@ fn slice_between<'a>(
 ) -> Option<&'a str> {
   let start = s.find(from)? + from.len();
   let end = start + s[start..].find(to)?;
-  s.get(start..end)
+  Some(&s[start..end])
 }
 
 fn xml_field<'a>(s: &'a str, field: &str) -> Result<&'a str> {

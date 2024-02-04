@@ -1,13 +1,13 @@
 mod api;
 mod battery;
 mod cli;
+mod commands;
 mod last_battery;
 mod net;
 mod notification;
 
 use std::{error::Error, process::ExitCode, thread, time::Duration};
 
-use battery::Battery;
 use cli::Cli;
 use notification::Notification;
 
@@ -30,12 +30,16 @@ fn main() -> ExitCode {
 
 fn launch() -> Result<()> {
   match Cli::parse() {
-    Cli::Info => info()?,
+    Cli::Info => {
+      commands::info()?;
+    }
     Cli::Watch => loop {
-      info()?;
+      commands::info()?;
       thread::sleep(DELAY);
     },
-    Cli::Charge => charge()?,
+    Cli::Charge => {
+      commands::charge()?;
+    }
     Cli::Reboot => {
       api::reboot(&api::login()?)?;
       Notification::common("Rebooting ..").show()?;
@@ -46,57 +50,4 @@ fn launch() -> Result<()> {
     }
   }
   Ok(())
-}
-
-fn info() -> Result<()> {
-  let Ok(ref auth_cookie) = api::login() else {
-    let battery_status =
-      last_battery_short_status().unwrap_or_default();
-    Notification::ongoing(format!("Disconnected {battery_status}"))
-      .show()?;
-    return Ok(());
-  };
-  let battery = api::battery(auth_cookie)?;
-  let net = api::net(auth_cookie)?;
-  Notification::ongoing(format!("{battery}\t\t{net}"))
-    .set_power_buttons()
-    .show()?;
-  last_battery::set(battery);
-  Ok(())
-}
-
-fn last_battery_short_status() -> Option<String> {
-  let battery = last_battery::get()?;
-  let badge = battery.badge();
-  let capacity = battery.capacity;
-  Some(format!("{badge} ~{capacity}%"))
-}
-
-fn charge() -> Result<()> {
-  Notification::common("Will be off on charged (Swipe to cancel)")
-    .on_delete(&format!(r#"pkill -f "{BIN_NAME} charge""#))
-    .show()?;
-  let mut prev: Option<Battery> = None;
-  loop {
-    let auth_cookie = &api::login()?;
-    let battery = api::battery(auth_cookie)?;
-    if charged_enough(&battery) || charging_disabled(prev, &battery) {
-      api::off(auth_cookie)?;
-      Notification::common("Charged and off ..").show()?;
-      return Ok(());
-    }
-    prev = Some(battery);
-    thread::sleep(DELAY);
-  }
-}
-
-fn charged_enough(battery: &Battery) -> bool {
-  battery.charging && battery.capacity > 92
-}
-
-fn charging_disabled(
-  prev: Option<Battery>,
-  battery: &Battery,
-) -> bool {
-  prev.is_some_and(|b| b.charging) && !battery.charging
 }

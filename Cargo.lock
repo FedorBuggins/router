@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "dark-droid"
 version = "0.1.0"
+dependencies = [
+ "termux-notification",
+]
+
+[[package]]
+name = "termux-notification"
+version = "0.1.0"
