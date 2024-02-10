@@ -1,12 +1,10 @@
 [package]
-name = "dark-droid"
+name = "router"
 version = "0.1.0"
 edition = "2021"
 
 [lints.clippy]
 pedantic = "deny"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-termux-notification = { version = "0.1.0", path = "../termux-notification" }
+termux-notification = { version = "0.1", features = ["callbacks"] }

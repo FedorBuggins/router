@@ -1,53 +1,110 @@
 mod api;
 mod battery;
 mod cli;
-mod commands;
-mod last_battery;
 mod net;
-mod notification;
+mod router;
 
-use std::{error::Error, process::ExitCode, thread, time::Duration};
+use std::{error::Error, sync::mpsc, thread, time::Duration};
 
-use cli::Cli;
-use notification::Notification;
+use termux_notification::TermuxNotification;
 
-const BATTERY_LIFETIME_HOURS: u32 = 7;
-const DELAY: Duration = Duration::from_secs(42);
+use crate::{
+  cli::Cli,
+  router::{Command, Router},
+};
 
 const BIN_NAME: &str = env!("CARGO_BIN_NAME");
+const BATTERY_LIFETIME: Duration = Duration::from_secs(7 * 60 * 60);
+const TICK: Duration = Duration::from_secs(13);
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-fn main() -> ExitCode {
-  match launch() {
-    Ok(()) => ExitCode::SUCCESS,
-    Err(err) => {
-      eprintln!("{err}");
-      ExitCode::FAILURE
-    }
+fn main() -> Result<()> {
+  match Cli::parse() {
+    Cli::Watch => watch(),
+    Cli::Reboot => api::reboot(&api::login()?),
+    Cli::Off => api::off(&api::login()?),
+  }
+  .map_err(|err| {
+    let _ = show_error_notification(&format!("{err}\n\n{err:?}"));
+    err
+  })
+}
+
+fn watch() -> Result<()> {
+  termux_notification::callbacks::init_socket();
+  let router = &mut Router::default();
+  let (tx, rx) = mpsc::channel();
+  spawn_ticks_loop(tx.clone());
+  loop {
+    let cmd = rx.recv()?;
+    router.handle(cmd)?;
+    show_notification(router, &tx)?;
   }
 }
 
-fn launch() -> Result<()> {
-  match Cli::parse() {
-    Cli::Info => {
-      commands::info()?;
-    }
-    Cli::Watch => loop {
-      commands::info()?;
-      thread::sleep(DELAY);
-    },
-    Cli::Charge => {
-      commands::charge()?;
-    }
-    Cli::Reboot => {
-      api::reboot(&api::login()?)?;
-      Notification::common("Rebooting ..").show()?;
-    }
-    Cli::Off => {
-      api::off(&api::login()?)?;
-      Notification::common("Switching off ..").show()?;
-    }
+fn spawn_ticks_loop(tx: mpsc::Sender<Command>) {
+  thread::spawn(move || loop {
+    tx.send(Command::Update).unwrap();
+    thread::sleep(TICK);
+  });
+}
+
+fn show_notification(
+  router: &Router,
+  tx: &mpsc::Sender<Command>,
+) -> Result<()> {
+  let mut noti = TermuxNotification::new();
+  noti
+    .id(BIN_NAME)
+    .title(format!("Router > {}", router.status.as_str()))
+    .content(info(router))
+    .ongoing(true)
+    .alert_once(true)
+    .icon("router");
+  if router.status.is_on() {
+    set_buttons(&mut noti, router, tx);
   }
+  noti.show()?;
+  Ok(())
+}
+
+fn info(router: &Router) -> String {
+  match (&router.battery, &router.net) {
+    (Some(battery), Some(net)) => format!("{battery}\t\t{net}"),
+    (Some(battery), None) => format!("{battery}"),
+    _ => String::new(),
+  }
+}
+
+fn set_buttons(
+  noti: &mut TermuxNotification,
+  router: &Router,
+  tx: &mpsc::Sender<Command>,
+) {
+  let cb = |cmd| {
+    let tx = tx.clone();
+    move || tx.send(cmd).unwrap()
+  };
+  noti
+    .button1_fn("OFF", cb(Command::Off))
+    .button2_fn("REBOOT", cb(Command::Reboot));
+  if router.charging() {
+    let f = cb(Command::OffWhenCharged(!router.off_when_charged));
+    let label = if router.off_when_charged {
+      "KEEP ON"
+    } else {
+      "CHARGE & OFF"
+    };
+    noti.button3_fn(label, f);
+  }
+}
+
+fn show_error_notification(content: &str) -> Result<()> {
+  TermuxNotification::new()
+    .title(format!("{BIN_NAME} Error"))
+    .content(content)
+    .icon("error")
+    .show()?;
   Ok(())
 }

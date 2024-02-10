@@ -1,6 +1,6 @@
 use std::{fmt, time::Duration};
 
-use super::BATTERY_LIFETIME_HOURS;
+use crate::BATTERY_LIFETIME;
 
 const HOUR: Duration = Duration::from_secs(3600);
 
@@ -21,7 +21,7 @@ impl Battery {
   }
 
   fn lifetime(&self) -> Duration {
-    BATTERY_LIFETIME_HOURS * HOUR * self.capacity.into() / 100
+    BATTERY_LIFETIME * self.capacity.into() / 100
   }
 }
 
@@ -38,10 +38,10 @@ impl fmt::Display for Battery {
 fn to_time_string(dur: Duration) -> String {
   let h = dur.as_secs_f32() / HOUR.as_secs_f32();
   if h > 1. {
-    let h = (h * 10.).round() / 10.;
+    let h = (h * 10.).floor() / 10.;
     format!("{h}h")
   } else {
-    let m = (h * 60.).round();
+    let m = (h * 60.).floor();
     format!("{m}m")
   }
 }

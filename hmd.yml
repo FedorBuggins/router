@@ -1,5 +1,0 @@
-ssh_address: VanyaGiftServer
-project: dark-droid
-lint: cargo clippy
-test: cargo test
-build: cargo build --release

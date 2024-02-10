@@ -1,15 +1,14 @@
-Dark Droid
+Router
 
-CLI tool and widget for unnamed china router
+CLI tool and notification widget for unnamed china router
 
-Usage: dark-droid <COMMAND>
+Usage: router [COMMAND]
 
 Commands:
-  info     Show router info notification
-  watch    Show info in interval
-  charge   Off router on charged
-  reboot   Reboot router
-  off      Off router
+  watch    Show pinned notification with router info
+           and useful actions [default]
+  reboot
+  off   
 
 Options:
   -h, --help
