@@ -17,7 +17,7 @@ const BIN_NAME: &str = env!("CARGO_BIN_NAME");
 const BATTERY_LIFETIME: Duration = Duration::from_secs(7 * 60 * 60);
 const TICK: Duration = Duration::from_secs(13);
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+type Result<T, E = Box<dyn Error>> = std::result::Result<T, E>;
 
 fn main() -> Result<()> {
   match Cli::parse() {
@@ -54,10 +54,12 @@ fn show_notification(
   router: &Router,
   tx: &mpsc::Sender<Command>,
 ) -> Result<()> {
+  let status = router.status.as_str();
+  let off_when_charged_badge = off_when_charged_badge(router);
   let mut noti = TermuxNotification::new();
   noti
     .id(BIN_NAME)
-    .title(format!("Router > {}", router.status.as_str()))
+    .title(format!("Router > {status} {off_when_charged_badge}"))
     .content(info(router))
     .ongoing(true)
     .alert_once(true)
@@ -67,6 +69,14 @@ fn show_notification(
   }
   noti.show()?;
   Ok(())
+}
+
+fn off_when_charged_badge(router: &Router) -> &str {
+  if router.off_when_charged && router.charging() {
+    "🔌"
+  } else {
+    ""
+  }
 }
 
 fn info(router: &Router) -> String {
