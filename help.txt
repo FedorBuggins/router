@@ -11,5 +11,7 @@ Commands:
   off   
 
 Options:
+  -v, --verbose
+           Print sh commands output
   -h, --help
            Print help

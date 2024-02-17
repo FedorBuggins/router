@@ -1,6 +1,6 @@
 use std::{ops::Deref, process::Command};
 
-use crate::{battery::Battery, net::Net, Result};
+use crate::{battery::Battery, cli::Cli, net::Net, Result};
 
 const PARSE_ERROR: &str = "Parse error";
 
@@ -59,6 +59,9 @@ pub(crate) fn off(auth_cookie: &AuthCookie) -> Result<()> {
 
 fn sh(script: &str) -> Result<String> {
   let output = Command::new("sh").args(["-c", script]).output()?;
+  if Cli::verbose() {
+    dbg!(&output);
+  }
   Ok(String::from_utf8(output.stdout)?)
 }
 

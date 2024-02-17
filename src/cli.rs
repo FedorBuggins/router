@@ -1,6 +1,12 @@
-use std::{env, process};
+use std::{
+  collections::HashSet,
+  env, process,
+  sync::atomic::{AtomicBool, Ordering},
+};
 
 const HELP_TXT: &str = include_str!("../help.txt");
+
+static VERBOSE: AtomicBool = AtomicBool::new(false);
 
 pub(crate) enum Cli {
   Watch,
@@ -10,8 +16,9 @@ pub(crate) enum Cli {
 
 impl Cli {
   pub(crate) fn parse() -> Self {
-    let args = &mut env::args();
-    match args.nth(1).unwrap_or("watch".into()).as_str() {
+    let mut args: HashSet<_> = env::args().skip(1).collect();
+    extract_verbose_option(&mut args);
+    match args.iter().next().map_or("watch", String::as_str) {
       "watch" => Self::Watch,
       "reboot" => Self::Reboot,
       "off" => Self::Off,
@@ -25,4 +32,15 @@ impl Cli {
       }
     }
   }
+
+  pub(crate) fn verbose() -> bool {
+    VERBOSE.load(Ordering::Relaxed)
+  }
+}
+
+fn extract_verbose_option(args: &mut HashSet<String>) {
+  VERBOSE.store(
+    ["--verbose", "-v"].into_iter().any(|v| args.remove(v)),
+    Ordering::Relaxed,
+  );
 }
