@@ -1,4 +1,9 @@
-use crate::{api, battery::Battery, net::Net, Result};
+use crate::{
+  api::{self, AuthCookie},
+  battery::Battery,
+  net::Net,
+  Result,
+};
 
 #[derive(Clone, Copy)]
 pub(crate) enum Command {
@@ -51,8 +56,7 @@ impl Router {
         }
       }
       Command::Off => {
-        self.status = Status::ShuttingDown;
-        api::off(&api::login()?)?;
+        self.off(&api::login()?)?;
       }
       Command::Reboot => {
         self.status = Status::Rebooting;
@@ -74,9 +78,7 @@ impl Router {
     self.battery = Some(battery);
     self.net = Some(net);
     if should_off {
-      self.status = Status::ShuttingDown;
-      self.off_when_charged = false;
-      api::off(auth_cookie)?;
+      self.off(auth_cookie)?;
     }
     Ok(())
   }
@@ -92,6 +94,13 @@ impl Router {
 
   pub(crate) fn charging(&self) -> bool {
     self.battery.as_ref().is_some_and(|b| b.charging)
+  }
+
+  fn off(&mut self, auth_cookie: &AuthCookie) -> Result<()> {
+    self.status = Status::ShuttingDown;
+    self.off_when_charged = false;
+    api::off(auth_cookie)?;
+    Ok(())
   }
 
   fn handle_connection_error(&mut self) {
