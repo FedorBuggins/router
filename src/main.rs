@@ -99,7 +99,9 @@ fn set_buttons(
   noti
     .button1_fn("OFF", cb(Command::Off))
     .button2_fn("REBOOT", cb(Command::Reboot));
-  if router.charging() {
+  if router.charging()
+    && router.battery.as_ref().is_some_and(|b| b.capacity < 90)
+  {
     let f = cb(Command::OffWhenCharged(!router.off_when_charged));
     let label = if router.off_when_charged {
       "KEEP ON"
