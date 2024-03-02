@@ -55,16 +55,17 @@ impl Router {
           self.handle_connection_error();
         }
       }
-      Command::Off => {
+      Command::Off if self.status.is_on() => {
         self.off(&api::login()?)?;
       }
-      Command::Reboot => {
+      Command::Reboot if self.status.is_on() => {
         self.status = Status::Rebooting;
         api::reboot(&api::login()?)?;
       }
       Command::OffWhenCharged(off_when_charged) => {
         self.off_when_charged = off_when_charged;
       }
+      _ => (),
     }
     Ok(())
   }
