@@ -99,9 +99,7 @@ fn set_buttons(
   noti
     .button1_fn("OFF", cb(Command::Off))
     .button2_fn("REBOOT", cb(Command::Reboot));
-  if router.charging()
-    && router.battery.as_ref().is_some_and(|b| b.capacity < 90)
-  {
+  if router.charging() && !router.charged_enough() {
     let f = cb(Command::OffWhenCharged(!router.off_when_charged));
     let label = if router.off_when_charged {
       "KEEP ON"
@@ -114,7 +112,7 @@ fn set_buttons(
 
 fn show_error_notification(content: &str) -> Result<()> {
   TermuxNotification::new()
-    .title(format!("{BIN_NAME} Error"))
+    .title(format!("{BIN_NAME} error"))
     .content(content)
     .icon("error")
     .show()?;

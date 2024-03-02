@@ -23,6 +23,10 @@ impl Battery {
   fn lifetime(&self) -> Duration {
     BATTERY_LIFETIME * self.capacity.into() / 100
   }
+
+  pub(crate) fn charged_enough(&self) -> bool {
+    self.capacity > 90
+  }
 }
 
 impl fmt::Display for Battery {

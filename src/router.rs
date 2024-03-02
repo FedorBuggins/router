@@ -86,7 +86,8 @@ impl Router {
 
   fn should_off(&mut self, new_battery: &Battery) -> bool {
     self.off_when_charged
-      && (new_battery.capacity > 90 || self.charging_off(new_battery))
+      && (new_battery.charged_enough()
+        || self.charging_off(new_battery))
   }
 
   fn charging_off(&mut self, new_battery: &Battery) -> bool {
@@ -95,6 +96,10 @@ impl Router {
 
   pub(crate) fn charging(&self) -> bool {
     self.battery.as_ref().is_some_and(|b| b.charging)
+  }
+
+  pub(crate) fn charged_enough(&self) -> bool {
+    self.battery.as_ref().is_some_and(Battery::charged_enough)
   }
 
   fn off(&mut self, auth_cookie: &AuthCookie) -> Result<()> {
